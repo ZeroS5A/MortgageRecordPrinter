@@ -303,10 +303,10 @@ with col1:
     main_id = st.text_input("身份证 (D2)")
     main_gender = st.selectbox("性别 (C2)", ["", "男", "女"])
     main_phone = st.text_input("电话 (F2)")
-    main_education = st.selectbox("学历 (J2)", ["", "初中及以下", "高中/中专", "大专", "本科", "硕士及以上"])
+    main_education = st.selectbox("学历 (J2)", ["", "初中", "高中", "大专", "本科", "硕士"])
     main_residence = st.text_input("户籍 (K2)")
     st.markdown("<br>", unsafe_allow_html=True)
-    home_phone = st.text_input("家庭固话 (B21)", help="若无固话可留空")
+    home_phone = st.text_input("家庭固话 (B21)")
     
 with col2:
     st.markdown("**👉 主借款人配偶 (第3行)**")
@@ -314,7 +314,7 @@ with col2:
     spouse_id = st.text_input("身份证 (D3)")
     spouse_gender = st.selectbox("性别 (C3)", ["", "男", "女"])
     spouse_phone = st.text_input("电话 (F3)")
-    spouse_education = st.selectbox("学历 (J3)", ["", "初中及以下", "高中/中专", "大专", "本科", "硕士及以上"])
+    spouse_education = st.selectbox("学历 (J3)", ["", "初中", "高中", "大专", "本科", "硕士"])
     spouse_residence = st.text_input("户籍 (K3)")
     
 st.markdown("---")
