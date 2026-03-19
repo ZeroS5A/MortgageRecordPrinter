@@ -195,7 +195,6 @@ def print_excel_worksheets(file_bytes, filename, marital_status, provident_fund_
             if ws.Visible == -1: 
                 sheet_name = ws.Name
                 copies = 1 
-                # print(sheet_name)
                 
                 if sheet_name == "信息录入":
                     continue
@@ -304,7 +303,7 @@ with col1:
     main_id = st.text_input("身份证 (D2)")
     main_gender = st.selectbox("性别 (C2)", ["", "男", "女"])
     main_phone = st.text_input("电话 (F2)")
-    main_education = st.selectbox("学历 (J2)", ["", "初中", "高中", "大专", "本科", "硕士"])
+    main_education = st.selectbox("学历 (J2)", ["", "初中及以下", "高中/中专", "大专", "本科", "硕士及以上"])
     main_residence = st.text_input("户籍 (K2)")
     st.markdown("<br>", unsafe_allow_html=True)
     home_phone = st.text_input("家庭固话 (B21)", help="若无固话可留空")
