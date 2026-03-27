@@ -213,8 +213,11 @@ def print_excel_worksheets(file_bytes, filename, marital_status, provident_fund_
                 
                 try:
                     print(f"正在打印：{sheet_name} (份数: {copies})")
-                    ws.PrintOut(Copies=copies)
-                    time.sleep(1) 
+                    # 【核心修复】：放弃直接传 Copies 参数，改为通过循环多次调用单份打印
+                    # 这样可以100%无视 Win10/Win11、以及打印机驱动对 COM 参数不支持的限制
+                    for _ in range(copies):
+                        ws.PrintOut() # 不带任何参数，按默认打印1份
+                        time.sleep(1.5) # 给打印机缓冲时间，防止由于队列涌入太快导致漏单
                 except Exception as sheet_err:
                     print(f"工作表 {sheet_name} 打印出现小状况: {sheet_err}")
                     
