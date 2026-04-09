@@ -9,20 +9,32 @@ import tempfile
 import time
 
 # --- 打印 Word 附属文件执行函数 ---
-def print_word_documents(main_id, spouse_id):
+def print_word_documents(main_name, main_id, main_phone, spouse_name, spouse_id, spouse_phone, provident_fund_loan):
     doc_dir = os.path.join(os.getcwd(), "doc")
     if not os.path.exists(doc_dir):
         return False, "⚠️ 未在同级目录下找到 'doc' 文件夹，附属 Word 文档被跳过。"
         
-    # 提取需要打印的有效身份证 (按人员角色独立入队)
-    ids_to_process = []
+    # 提取需要打印的有效人员信息 (按人员角色独立入队)，格式: (角色, 姓名, 身份证, 手机号)
+    persons_to_process = []
     if main_id and str(main_id).strip():
-        ids_to_process.append(("主借款人", str(main_id).strip()))
+        persons_to_process.append(("主借款人", str(main_name).strip(), str(main_id).strip(), str(main_phone).strip()))
     if spouse_id and str(spouse_id).strip():
-        ids_to_process.append(("配偶", str(spouse_id).strip()))
+        persons_to_process.append(("配偶", str(spouse_name).strip(), str(spouse_id).strip(), str(spouse_phone).strip()))
         
-    if not ids_to_process:
+    if not persons_to_process:
         return False, "⚠️ 未填写任何有效身份证信息，授权书被跳过。"
+
+    # 检查是否包含公积金贷款
+    has_provident_fund = False
+    if provident_fund_loan:
+        val_str = str(provident_fund_loan).strip()
+        if val_str not in ["", "0", "0.0", "无"]:
+            try:
+                pf_val = float(val_str.replace('万', '').replace('元', '').replace(',', ''))
+                if pf_val > 0:
+                    has_provident_fund = True
+            except ValueError:
+                has_provident_fund = True
         
     try:
         import win32com.client
@@ -42,6 +54,8 @@ def print_word_documents(main_id, spouse_id):
         def replace_in_doc(doc_obj, find_str, replace_str):
             wdReplaceAll = 2
             wdFindContinue = 1
+            if not replace_str: # 防空值报错
+                replace_str = ""
             for story in doc_obj.StoryRanges:
                 try:
                     story.Find.Execute(FindText=find_str, MatchCase=False, MatchWholeWord=False, 
@@ -66,22 +80,21 @@ def print_word_documents(main_id, spouse_id):
         file1_path = os.path.abspath(os.path.join(doc_dir, "1_综合授权书.docx"))
         file2_path = os.path.abspath(os.path.join(doc_dir, "2_征信授权书.docx"))
         file3_path = os.path.abspath(os.path.join(doc_dir, "3_温馨提示.docx"))
+        file4_path = os.path.abspath(os.path.join(doc_dir, "4_公积金授权.docx"))
+        file5_path = os.path.abspath(os.path.join(doc_dir, "5_公积金面谈.docx"))
+        file6_path = os.path.abspath(os.path.join(doc_dir, "6_公积金对冲.docx"))
         
         error_msgs = []
 
-        # 按人头依次打印
-        for role, id_num in ids_to_process:
+        # 按人头依次打印基础授权书
+        for role, name, id_num, phone in persons_to_process:
             # --- 打印 1_综合授权书 ---
             if os.path.exists(file1_path):
                 doc1 = None
                 try:
-                    # 使用具名参数 FileName 避免 Open 方法因为版本差异抛出 <unknown>.Open
                     doc1 = word.Documents.Open(FileName=file1_path, ReadOnly=False, Visible=False)
-                    
-                    # 极简替换逻辑：直接替换 idnumb
                     replace_in_doc(doc1, "idnumb", id_num)
-                    
-                    print(f"准备打印：1_综合授权书 ({role}: {id_num})")
+                    print(f"准备打印：1_综合授权书 ({role}: {name})")
                     doc1.PrintOut(Background=False)
                     time.sleep(1)
                 except Exception as e:
@@ -90,7 +103,7 @@ def print_word_documents(main_id, spouse_id):
                     error_msgs.append(err_str)
                 finally:
                     if doc1:
-                        try: doc1.Close(SaveChanges=0) # 不保存关闭
+                        try: doc1.Close(SaveChanges=0)
                         except: pass
 
             # --- 打印 2_征信授权书 ---
@@ -98,11 +111,8 @@ def print_word_documents(main_id, spouse_id):
                 doc2 = None
                 try:
                     doc2 = word.Documents.Open(FileName=file2_path, ReadOnly=False, Visible=False)
-                    
-                    # 极简替换逻辑：直接替换 idnumb
                     replace_in_doc(doc2, "idnumb", id_num)
-                    
-                    print(f"准备打印：2_征信授权书 ({role}: {id_num})")
+                    print(f"准备打印：2_征信授权书 ({role}: {name})")
                     doc2.PrintOut(Background=False)
                     time.sleep(1)
                 except Exception as e:
@@ -118,7 +128,6 @@ def print_word_documents(main_id, spouse_id):
         if os.path.exists(file3_path):
             doc3 = None
             try:
-                # 提示文件无需替换，以纯只读模式安全打开
                 doc3 = word.Documents.Open(FileName=file3_path, ReadOnly=True, Visible=False)
                 print("准备打印：3_温馨提示")
                 doc3.PrintOut(Background=False)
@@ -131,6 +140,71 @@ def print_word_documents(main_id, spouse_id):
                 if doc3:
                     try: doc3.Close(SaveChanges=0)
                     except: pass
+
+        # ==========================================
+        # === 以下为新增的公积金专属文档打印逻辑 ===
+        # ==========================================
+        if has_provident_fund:
+            # --- 打印 4_公积金授权 (按人头分别打印) ---
+            for role, name, id_num, phone in persons_to_process:
+                if os.path.exists(file4_path):
+                    doc4 = None
+                    try:
+                        doc4 = word.Documents.Open(FileName=file4_path, ReadOnly=False, Visible=False)
+                        replace_in_doc(doc4, "<借款人>", name)
+                        replace_in_doc(doc4, "<借款人身份证号码>", id_num)
+                        replace_in_doc(doc4, "<借款人手机号>", phone)
+                        print(f"准备打印：4_公积金授权 ({role}: {name})")
+                        doc4.PrintOut(Background=False)
+                        time.sleep(1)
+                    except Exception as e:
+                        err_str = f"4_公积金授权({role})失败: {e}"
+                        print(err_str)
+                        error_msgs.append(err_str)
+                    finally:
+                        if doc4:
+                            try: doc4.Close(SaveChanges=0)
+                            except: pass
+
+            # --- 打印 5_公积金面谈 (总共1份，替换借款人1、借款人2) ---
+            if os.path.exists(file5_path):
+                doc5 = None
+                try:
+                    doc5 = word.Documents.Open(FileName=file5_path, ReadOnly=False, Visible=False)
+                    main_n = persons_to_process[0][1] if len(persons_to_process) > 0 else ""
+                    spouse_n = persons_to_process[1][1] if len(persons_to_process) > 1 else "无"
+                    
+                    replace_in_doc(doc5, "<借款人1>", main_n)
+                    replace_in_doc(doc5, "<借款人2>", spouse_n)
+                    
+                    print(f"准备打印：5_公积金面谈")
+                    doc5.PrintOut(Background=False)
+                    time.sleep(1)
+                except Exception as e:
+                    err_str = f"5_公积金面谈失败: {e}"
+                    print(err_str)
+                    error_msgs.append(err_str)
+                finally:
+                    if doc5:
+                        try: doc5.Close(SaveChanges=0)
+                        except: pass
+
+            # --- 打印 6_公积金对冲 (总共1份) ---
+            if os.path.exists(file6_path):
+                doc6 = None
+                try:
+                    doc6 = word.Documents.Open(FileName=file6_path, ReadOnly=True, Visible=False)
+                    print(f"准备打印：6_公积金对冲")
+                    doc6.PrintOut(Background=False)
+                    time.sleep(1)
+                except Exception as e:
+                    err_str = f"6_公积金对冲失败: {e}"
+                    print(err_str)
+                    error_msgs.append(err_str)
+                finally:
+                    if doc6:
+                        try: doc6.Close(SaveChanges=0)
+                        except: pass
 
         try:
             # 打扫战场：关掉替身文档，并彻底退出 Word
@@ -430,8 +504,12 @@ if submitted:
                 # 提取打印相关参数入 Session
                 st.session_state['print_marital_status'] = marital_status
                 st.session_state['print_provident_fund_loan'] = provident_fund_loan
+                st.session_state['print_main_name'] = main_name
                 st.session_state['print_main_id'] = main_id
+                st.session_state['print_main_phone'] = main_phone
+                st.session_state['print_spouse_name'] = spouse_name
                 st.session_state['print_spouse_id'] = spouse_id
+                st.session_state['print_spouse_phone'] = spouse_phone
 
         except Exception as e:
             st.error(f"处理Excel文件时发生不可预知的错误: {e}")
@@ -469,8 +547,13 @@ if st.session_state.get('generated_excel') is not None:
                     
                     # 2. Excel 打印成功后，继续打印 Word 附属文件
                     success_wd, msg_wd = print_word_documents(
+                        st.session_state.get('print_main_name', ''),
                         st.session_state.get('print_main_id', ''),
-                        st.session_state.get('print_spouse_id', '')
+                        st.session_state.get('print_main_phone', ''),
+                        st.session_state.get('print_spouse_name', ''),
+                        st.session_state.get('print_spouse_id', ''),
+                        st.session_state.get('print_spouse_phone', ''),
+                        st.session_state.get('print_provident_fund_loan', '')
                     )
                     
                     if success_wd:
